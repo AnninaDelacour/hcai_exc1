@@ -4,7 +4,7 @@ from active_learning_basics import (
     load_data_from_df,
     train_model,
     evaluate_model,
-    get_low_conf_unlabeled
+    get_representative_samples
 )
 from labelstudio_interface import upload_to_labelstudio, fetch_labeled_data
 import joblib
@@ -36,8 +36,8 @@ def active_learning_main(df, label_map, max_iterations=5, initial_label_size=20,
         f1, auc = evaluate_model(model, vectorizer, evaluation_data, label_map)
         print(f"[Iteration {iteration+1}] F1 Score: {f1} | AUC: {auc}")
 
-        # 5. Use Uncertainty Sampling
-        queried = get_low_conf_unlabeled(model, vectorizer, unlabeled_data, number=query_size)
+        # 5. Use Diversity Sampling
+        queried = get_representative_samples(training_data, unlabeled_data, vectorizer, number=query_size)
 
         # 6. (Optional) Simulating manual labelling: Using ground truth as labels
         #for item in queried:
@@ -60,8 +60,8 @@ def active_learning_main(df, label_map, max_iterations=5, initial_label_size=20,
             break
 
     
-    joblib.dump(model, "final_active_learning_model.pkl")
-    joblib.dump(vectorizer, "final_vectorizer.pkl")
+    joblib.dump(model, "active_learning_model_representative_sampling.pkl")
+    joblib.dump(vectorizer, "vectorizer_active_learning_representative_sampling.pkl")
     print("Successfully saved model and vectorizer.")
     
     print("\nActive Learning finished successfully!")

@@ -34,7 +34,8 @@ import pandas as pd
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import SGDClassifier
-from sklearn.metrics import classification_report, f1_score, roc_auc_score
+from sklearn.metrics import classification_report, f1_score, roc_auc_score 
+from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import label_binarize
 from sklearn.model_selection import train_test_split
 from uncertainty_sampling import UncertaintySampling 
@@ -198,6 +199,7 @@ def train_model(training_data, evaluation_data):
 # --- ENTROPY SAMPLING --- #
 
 
+'''
 us = UncertaintySampling()
 
 def get_entropy_samples(model, vectorizer, unlabeled_data, number=30, limit=10000):
@@ -224,6 +226,43 @@ def get_entropy_samples(model, vectorizer, unlabeled_data, number=30, limit=1000
         selected.append(item)
 
     return selected
+'''
+
+
+
+def get_representative_samples(training_data, unlabeled_data, vectorizer, number=30, limit=10000):
+    """
+    Representative Sampling: Chooses data points which are more representative in the 'unlabeled space' than other
+    """
+    if limit != -1:
+        unlabeled_data = random.sample(unlabeled_data, min(limit, len(unlabeled_data)))
+
+    X_train = [item[1] for item in training_data]
+    X_unlab = [item[1] for item in unlabeled_data]
+
+    X_train_vec = vectorizer.transform(X_train)
+    X_unlab_vec = vectorizer.transform(X_unlab)
+
+    selected = []
+
+    for i, item in enumerate(unlabeled_data):
+        if str(item[0]) in already_labeled:
+            continue
+        vec = X_unlab_vec[i]
+
+        # Cosine similarity to cluster
+        sim_to_unlabeled = cosine_similarity(vec, X_unlab_vec).mean()
+
+        # Again, cosine similarity, but now for a trainings-cluster
+        sim_to_labeled = cosine_similarity(vec, X_train_vec).mean()
+
+        representativeness = sim_to_unlabeled - sim_to_labeled
+        item[3] = "representative"
+        item[4] = representativeness
+        selected.append(item)
+
+    selected.sort(key=lambda x: x[4], reverse=True)
+    return selected[:number]
 
 
 
@@ -242,6 +281,7 @@ def get_random_items(unlabeled_data, number=10):
         if len(selected) == number:
             break
     return selected
+
 
 
 def get_outliers(training_data, unlabeled_data, vectorizer, number=10):
