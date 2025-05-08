@@ -37,7 +37,7 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import classification_report, f1_score, roc_auc_score
 from sklearn.preprocessing import label_binarize
 from sklearn.model_selection import train_test_split
-
+from uncertainty_sampling import UncertaintySampling 
 
 
 
@@ -149,7 +149,8 @@ def train_model(training_data, evaluation_data):
     X_eval_tfidf = vectorizer.transform(X_eval)
 
     # Classifier definition: SGD = Linear SVM)
-    model = SGDClassifier(loss='hinge', penalty='l2', alpha=0.0001, random_state=42)
+    # model = SGDClassifier(loss='hinge', penalty='l2', alpha=0.0001, random_state=42) # used for Margin Sampling
+    model = SGDClassifier(loss='log_loss', penalty='l2', alpha=0.0001, random_state=42) # used for Entropy Sampling
     model.fit(X_train_tfidf, y_train)
 
     y_pred = model.predict(X_eval_tfidf)
@@ -162,10 +163,12 @@ def train_model(training_data, evaluation_data):
 
 
 
-def get_low_conf_unlabeled(model, vectorizer, unlabeled_data, number=80, limit=10000):
-    """
-    Chooses those examples with the smallest prediction confidence = Uncertainty Sampling -> Margin Sampling
-    """
+# --- MARGIN SAMPLING --- #
+
+""" def get_low_conf_unlabeled(model, vectorizer, unlabeled_data, number=80, limit=10000):
+    
+    # Chooses those examples with the smallest prediction confidence = Uncertainty Sampling -> Margin Sampling
+    
     if limit != -1:
         unlabeled_data = random.sample(unlabeled_data, min(limit, len(unlabeled_data)))
 
@@ -188,7 +191,41 @@ def get_low_conf_unlabeled(model, vectorizer, unlabeled_data, number=80, limit=1
         confidences.append(item)
 
     confidences.sort(key=lambda x: x[4])  # smallest confidence level first
-    return confidences[:number]
+    return confidences[:number] """
+
+
+
+# --- ENTROPY SAMPLING --- #
+
+
+us = UncertaintySampling()
+
+def get_entropy_samples(model, vectorizer, unlabeled_data, number=30, limit=10000):
+    """
+    Entropy Sampling: Chooses examples with low confidence on the basis of entropy
+    """
+    if limit != -1:
+        #unlabeled_data = random.sample(unlabeled_data, min(limit, len(unlabeled_data)))
+        unlabeled_data = [item for item in random.sample(unlabeled_data, min(limit, len(unlabeled_data))) 
+                          if str(item[0]) not in already_labeled]
+
+
+    X = [item[1] for item in unlabeled_data]
+    X_vec = vectorizer.transform(X)
+    prob_matrix = model.predict_proba(X_vec)
+
+    indices, scores = us.query_top_k(prob_matrix, method=us.entropy_based, k=number)
+
+    selected = []
+    for i in indices:
+        item = unlabeled_data[i]
+        item[3] = "entropy"
+        item[4] = scores[i]
+        selected.append(item)
+
+    return selected
+
+
 
 
 def get_random_items(unlabeled_data, number=10):
