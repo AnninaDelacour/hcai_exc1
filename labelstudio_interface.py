@@ -1,6 +1,7 @@
 import requests
 import os
 from dotenv import load_dotenv
+from active_learning_basics import already_labeled
 
 load_dotenv()
 
@@ -94,6 +95,12 @@ def fetch_labeled_data(original_items):
                 print(f"Ignore unknown label: {label_str}")
         else:
             print(f"No more annotation found for Item ID {item_id}.")
+    
+    # update already_labeled variable
+    for item in updated_items:
+        item_id = str(item[0])
+        item_label = item[2]
+        already_labeled[item_id] = item_label
 
     return updated_items
 
